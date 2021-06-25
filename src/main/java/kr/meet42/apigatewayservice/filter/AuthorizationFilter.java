@@ -1,6 +1,11 @@
 package kr.meet42.apigatewayservice.filter;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
+import kr.meet42.apigatewayservice.client.MemberServiceClient;
+import kr.meet42.apigatewayservice.dto.TokenDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -12,15 +17,21 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
+
 @Component
 @Slf4j
 public class AuthorizationFilter extends AbstractGatewayFilterFactory<AuthorizationFilter.Config>
 {
     private final Environment env;
-    private static String ACCESS_TOKEN = "access-token";
+    private final MemberServiceClient memberServiceClient;
 
-    public AuthorizationFilter(Environment env) {
+    private static String ACCESS_TOKEN = "access-token";
+    private static String REFRESH_TOKEN = "refresh-token";
+
+    public AuthorizationFilter(Environment env, MemberServiceClient memberServiceClient) {
         super(Config.class);
+        this.memberServiceClient = memberServiceClient;
         this.env = env;
     }
 
@@ -34,9 +45,38 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
-            // refresh token이 있다면? -> 재발급 로직 태워야 함
-            // member에서 refresh해줄거고
-            // 이걸 어떻게 심어서 원 경로에다 보내지?
+            // refresh token이 있는 경우
+            if (request.getHeaders().containsKey(REFRESH_TOKEN)){
+                TokenDto receivedToken = TokenDto.builder()
+                        .accessToken(request.getHeaders().get(ACCESS_TOKEN).get(0))
+                        .refreshToken(request.getHeaders().get(REFRESH_TOKEN).get(0))
+                        .build();
+                TokenDto tokenDto =
+                        memberServiceClient.verifyToken(receivedToken);
+                if (tokenDto != null){
+                    try {
+                        ServerHttpRequest m_request = exchange.getRequest().mutate()
+                                .header(ACCESS_TOKEN, tokenDto.getAccessToken())
+                                .build();
+                        return chain.filter(exchange.mutate().request(m_request).build());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                } else {
+                    try {
+                        ServerHttpResponse m_response = exchange.getResponse();
+                        URI uri = new URI("http://15.164.85.227:8080/login");
+                        m_response.getHeaders().setLocation(uri);
+                        m_response.setStatusCode(HttpStatus.FOUND);
+                        m_response.setComplete();
+                        return chain.filter(exchange.mutate().response(m_response).build());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                    }
+                }
 
             if (!request.getHeaders().containsKey(ACCESS_TOKEN)){
                 return onError(exchange, "No authorization header", HttpStatus.UNAUTHORIZED);
@@ -57,20 +97,25 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
         boolean returnValue = true;
 
         String subject = null;
-
+        returnValue = false;
         try {
             subject = Jwts.parser().setSigningKey(env.getProperty("token.secret"))
                     .parseClaimsJws(jwt).getBody().getSubject();
-
-
+            if (subject == null || subject.isEmpty()) {
+                returnValue = false;
+            } else {
+                returnValue = true;
+            }
+        } catch (SecurityException | MalformedJwtException e) {
+            log.info("잘못된 JWT Signature입니다.");
+        } catch (ExpiredJwtException e) {
+            log.info("만료된 JWT 토큰입니다.");
+        } catch (UnsupportedJwtException e) {
+            log.info("지원되지 않는 JWT 토큰입니다.");
+        } catch (IllegalArgumentException e) {
+            log.info("JWT 토큰이 잘못되었습니다.");
         } catch (Exception ex) {
-            returnValue = false;
         }
-
-        if (subject == null || subject.isEmpty()) {
-            returnValue = false;
-        }
-
         return returnValue;
     }
 
