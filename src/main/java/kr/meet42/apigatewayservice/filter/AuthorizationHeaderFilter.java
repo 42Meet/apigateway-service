@@ -9,6 +9,7 @@ import kr.meet42.apigatewayservice.dto.TokenDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -21,7 +22,7 @@ import java.net.URI;
 
 @Component
 @Slf4j
-public class AuthorizationFilter extends AbstractGatewayFilterFactory<AuthorizationFilter.Config>
+public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<AuthorizationHeaderFilter.Config>
 {
     private final Environment env;
     private final MemberServiceClient memberServiceClient;
@@ -29,7 +30,7 @@ public class AuthorizationFilter extends AbstractGatewayFilterFactory<Authorizat
     private static String ACCESS_TOKEN = "access-token";
     private static String REFRESH_TOKEN = "refresh-token";
 
-    public AuthorizationFilter(Environment env, MemberServiceClient memberServiceClient) {
+    public AuthorizationHeaderFilter(Environment env, @Lazy MemberServiceClient memberServiceClient) {
         super(Config.class);
         this.memberServiceClient = memberServiceClient;
         this.env = env;

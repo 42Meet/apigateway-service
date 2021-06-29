@@ -2,6 +2,8 @@ server:
   port: 80
 
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
     register-with-eureka: true
     fetch-registry: true
@@ -18,24 +20,52 @@ spring:
           uri: lb://MEMBER-SERVICE
           predicates:
             - Path=/member/**
-            - Method=GET, POST
+            - Method=GET, POST, OPTIONS
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/member/(?<segment>.*), /$\{segment}
-        - id: reservation-service
+        - id: reservation-service-register
           uri: lb://RESERVATION-SERVICE
           predicates:
-            - Path=/reservation/**
-            - Method=GET, POST
+            - Path=/reservation/register
+            - Method=GET, POST, OPTIONS
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
             - AuthorizationHeaderFilter
-        - id: frontend-service
-          uri: http://3.35.14.180/login
+        - id: reservation-service-delete
+          uri: lb://RESERVATION-SERVICE
           predicates:
-            - Path=/meeting/**
-            - Method=GET, POST
+            - Path=/reservation/delete
+            - Method=GET, POST, OPTIONS
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/reservation/(?<segment>.*), /$\{segment}
+            - AuthorizationHeaderFilter
+        - id: reservation-service-mypage
+          uri: lb://RESERVATION-SERVICE
+          predicates:
+            - Path=/reservation/mypage
+            - Method=GET, POST, OPTIONS
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/reservation/(?<segment>.*), /$\{segment}
+            - AuthorizationHeaderFilter
+        - id: reservation-service
+          uri: lb://RESERVATION-SERVICE
+          predicates:
+            - Path=/reservation/**
+            - Method=GET, POST, OPTIONS
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/reservation/(?<segment>.*), /$\{segment}
+        - id: frontend-service
+          uri: http://3.35.14.180
+          predicates:
+            - Path=/**
+            - Method=GET, POST, OPTIONS
+          filters:
+            - RewritePath=/(?<segment>.*), /meeting/$\{segment}
 
 token:
   secret: sample
