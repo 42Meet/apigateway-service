@@ -11,6 +11,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @Slf4j
@@ -46,14 +48,15 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
+            if (request.getMethod() == HttpMethod.OPTIONS) {
+                return chain.filter(exchange);
+            }
             // refresh token이 있는 경우
             if (request.getHeaders().containsKey(REFRESH_TOKEN)){
-                TokenDto receivedToken = TokenDto.builder()
-                        .accessToken(request.getHeaders().get(ACCESS_TOKEN).get(0))
-                        .refreshToken(request.getHeaders().get(REFRESH_TOKEN).get(0))
-                        .build();
+                String accessToken = request.getHeaders().get(ACCESS_TOKEN).get(0);
+                String refreshToken = request.getHeaders().get(REFRESH_TOKEN).get(0);
                 TokenDto tokenDto =
-                        memberServiceClient.verifyToken(receivedToken);
+                            memberServiceClient.refreshToken(accessToken, refreshToken);
                 if (tokenDto != null){
                     try {
                         ServerHttpRequest m_request = exchange.getRequest().mutate()
@@ -67,7 +70,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
                 } else {
                     try {
                         ServerHttpResponse m_response = exchange.getResponse();
-                        URI uri = new URI("http://15.164.85.227:8080/login");
+                        URI uri = new URI(env.getProperty("42meet.server.login"));
                         m_response.getHeaders().setLocation(uri);
                         m_response.setStatusCode(HttpStatus.FOUND);
                         m_response.setComplete();
@@ -76,8 +79,8 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
                         e.printStackTrace();
                         return null;
                     }
-                    }
                 }
+            }
 
             if (!request.getHeaders().containsKey(ACCESS_TOKEN)){
                 return onError(exchange, "No authorization header", HttpStatus.UNAUTHORIZED);
@@ -85,7 +88,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 
             String authorizationHeader = request.getHeaders().get(ACCESS_TOKEN).get(0);
             String jwt = authorizationHeader.replace("Bearer", "");
-
+            log.info(jwt);
             if (!isJwtValid(jwt)) {
                 return onError(exchange, "JWT token is not valid", HttpStatus.UNAUTHORIZED);
             }
@@ -95,12 +98,10 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
     }
 
     private boolean isJwtValid(String jwt) {
-        boolean returnValue = true;
-
+        boolean returnValue = false;
         String subject = null;
-        returnValue = false;
         try {
-            subject = Jwts.parser().setSigningKey(env.getProperty("token.secret"))
+            subject = Jwts.parser().setSigningKey(env.getProperty("token.secret").getBytes(StandardCharsets.UTF_8))
                     .parseClaimsJws(jwt).getBody().getSubject();
             if (subject == null || subject.isEmpty()) {
                 returnValue = false;
@@ -116,6 +117,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
         } catch (IllegalArgumentException e) {
             log.info("JWT 토큰이 잘못되었습니다.");
         } catch (Exception ex) {
+            log.info(ex.getMessage());
         }
         return returnValue;
     }

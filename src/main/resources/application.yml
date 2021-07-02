@@ -16,6 +16,13 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: login
+          uri: http://42meet.kro.kr:8080
+          predicates:
+            - Path=/login/**
+            - Method=GET, POST, OPTIONS
+          filters:
+            - RemoveRequestHeader=Cookie
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
@@ -24,6 +31,7 @@ spring:
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/member/(?<segment>.*), /$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: reservation-service-register
           uri: lb://RESERVATION-SERVICE
           predicates:
@@ -33,6 +41,7 @@ spring:
             - RemoveRequestHeader=Cookie
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
             - AuthorizationHeaderFilter
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: reservation-service-delete
           uri: lb://RESERVATION-SERVICE
           predicates:
@@ -42,15 +51,17 @@ spring:
             - RemoveRequestHeader=Cookie
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
             - AuthorizationHeaderFilter
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: reservation-service-mypage
           uri: lb://RESERVATION-SERVICE
           predicates:
-            - Path=/reservation/mypage
+            - Path=/reservation/mypage/**
             - Method=GET, POST, OPTIONS
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
             - AuthorizationHeaderFilter
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: reservation-service
           uri: lb://RESERVATION-SERVICE
           predicates:
@@ -59,13 +70,19 @@ spring:
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: frontend-service
           uri: http://3.35.14.180
           predicates:
             - Path=/**
             - Method=GET, POST, OPTIONS
-          filters:
-            - RewritePath=/(?<segment>.*), /meeting/$\{segment}
 
 token:
   secret: sample
+
+42meet:
+  server:
+    host: http://42meet.kro.kr
+    login: http://42meet.kro.kr/login
+    redirect: http://42meet.kro.kr/booking
+    test: http://localhost:3000
