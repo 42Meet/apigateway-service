@@ -24,6 +24,7 @@ public class LoggingFilter implements GlobalFilter, Ordered {
                 Mono.fromRunnable(() -> {
                     ServerHttpResponse response = exchange.getResponse();
                     log.info(response.getHeaders().toString());
+                    log.info(response.getStatusCode().toString());
                 }
         ));
     }

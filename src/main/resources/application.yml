@@ -72,7 +72,7 @@ spring:
             - RewritePath=/reservation/(?<segment>.*), /$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Origin Access-Control-Request-Method Access-Control-Request-Headers
         - id: frontend-service
-          uri: http://3.35.14.180
+          uri: http://3.37.185.84
           predicates:
             - Path=/**
             - Method=GET, POST, OPTIONS
@@ -84,5 +84,12 @@ token:
   server:
     host: http://42meet.kro.kr
     login: http://42meet.kro.kr/login
-    redirect: http://42meet.kro.kr/booking
+    redirect: http://42meet.kro.kr
     test: http://localhost:3000
+
+logging:
+  level:
+    org.springframework.cloud.gateway: trace
+    reactor.netty: trace
+    org.springframework: INFO
+    org.springframework.web: DEBUG

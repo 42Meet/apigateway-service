@@ -20,7 +20,7 @@ public class CorsConfig implements WebFluxConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowCredentials(true)
-                .allowedOrigins(env.getProperty("42meet.server.test"))
+                .allowedOrigins(env.getProperty("42meet.server.test"), env.getProperty("42meet.server.host"))
                 .allowedHeaders("*")
                 .allowedMethods("*");
     }
@@ -32,6 +32,7 @@ public class CorsConfig implements WebFluxConfigurer {
         corsConfiguration.addAllowedHeader("*");
         corsConfiguration.addAllowedMethod("*");
         corsConfiguration.addAllowedOrigin(env.getProperty("42meet.server.test"));
+        corsConfiguration.addAllowedOrigin(env.getProperty("42meet.server.host"));
         UrlBasedCorsConfigurationSource corsConfigurationSource = new UrlBasedCorsConfigurationSource();
         corsConfigurationSource.registerCorsConfiguration("/**", corsConfiguration);
         return new CorsWebFilter(corsConfigurationSource);
